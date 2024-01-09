@@ -127,7 +127,8 @@ int main_multi_threaded(
 	uint64_t data_size_log2,
 	bool multi_threaded,
 	bool avx512,
-	bool bits64
+	bool bits64,
+	const uint64_t numa_node
 ) {
     // define number of values
     // 27 --> 134 million integers --> 8GB
@@ -158,11 +159,11 @@ int main_multi_threaded(
     /**
      * allocate memory and fill with random numbers
      */
-    ResultT* array = allocate<ResultT>(number_of_values);
+    ResultT* array = allocate<ResultT>(number_of_values, numa_node);
     if (array != NULL) {
-        cout << "Memory allocated - " << number_of_values << " values" << endl;
+        cout << "Memory allocated on NUMA node " << numa_node << " - " << number_of_values << " values" << endl;
     } else {
-        cout << "Memory not allocated" << endl;
+        cout << "Memory not allocated on NUMA node " << numa_node << endl;
 		exit(NO_MEMORY);
     }
     generate_random_values(array, number_of_values);
@@ -178,7 +179,7 @@ int main_multi_threaded(
 	measurements.assign(aggregators.size(), multithreaded_measures());
 
     // open files to store runtime measurements
-	string label = make_label(data_size_log2, multi_threaded, avx512, bits64);
+	string label = make_label(data_size_log2, multi_threaded, avx512, bits64, numa_node);
 	string result_filename_base = "./data/gather/" + label;
 
 	/*

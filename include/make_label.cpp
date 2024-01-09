@@ -12,6 +12,7 @@ std::string make_label(
 	bool multi_threaded,
 	bool avx512,
 	bool bits64,
+	int numa_node,
 	std::string sep = "_",
 	bool include_data_size = true
 ) {
@@ -20,7 +21,8 @@ std::string make_label(
 		result += std::to_string(data_size_log2) + sep;
 	result += (multi_threaded ? "multi_threaded" : "single_threaded") + sep;
 	result += (avx512         ? "avx512" : "avx256") + sep;
-	result += (bits64         ? "64bit" : "32bit");
+	result += (bits64         ? "64bit" : "32bit") + sep;
+	result += "node" + std::to_string(numa_node);
 	return result;
 }
 

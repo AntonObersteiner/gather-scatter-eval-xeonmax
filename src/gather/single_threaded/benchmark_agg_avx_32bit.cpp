@@ -32,6 +32,7 @@ int main(int argc, const char** argv) {
 		data_size_log2,	// log2 of number of integers
 		multi_threaded,
 		avx512,
-		bits64
+		bits64,
+		numa_node
 	);
 }
