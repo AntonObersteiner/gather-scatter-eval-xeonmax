@@ -15,6 +15,7 @@
 
 #include "gather/simd_variants/avx/agg_avx_64BitVariants.h"
 #include "error_codes.h"
+#include "cmdline_args.h"
 
 // ITERATIONS and MAX_CORES
 #include "parameters.h"

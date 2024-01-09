@@ -10,12 +10,15 @@ using ResultT = uint64_t;
 constexpr bool bits64 = std::is_same<ResultT, uint64_t>::value;
 
 int main(int argc, const char** argv) {
-    if (argc < 2) {
-        cerr << "Data Size as input expected (as log_2)!" << endl;
-        return NO_DATA_SIZE_GIVEN;
-    }
-
-    int data_size_log2 = atoi(argv[1]);
+	int data_size_log2 = 0;
+	int numa_node = 0;
+	int result = read_cmdline_arguments(
+		argc, argv,
+		data_size_log2,
+		numa_node
+	);
+	if (result != SUCCESS)
+		return result;
 
 	const vector<aggregator_t<ResultT>> aggregators	{
 		{ aggregate_scalar,					"scalar",	false },

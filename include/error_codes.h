@@ -9,6 +9,7 @@ enum gather_error_codes {
 	DATA_SIZE_TOO_LOW = 2,
 	RESULT_FILE_NOT_OPENED = 3,
 	NO_MEMORY = 4,
+	TOO_MANY_ARGUMENTS = 5,
 };
 
 #endif // include guard GATHER_ERROR_CODES_H
