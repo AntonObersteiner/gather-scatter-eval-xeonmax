@@ -32,8 +32,59 @@ multithreaded_measures scalar, linear, gather, seti;
 #include "log_multithreaded_results.cpp"
 #include "generate_random_values.cpp"
 
+int find_next_best_cpu (
+	uint64_t &cpu_id,
+	cpu_set_t* in_use,
+	const uint64_t cpu_numa_node,
+	uint64_t &nonspecificity,
+	const uint64_t max_nonspecificity = 3
+) {
+	// the 2**nonspec numa nodes in alignment around cpu_numa_node are considered.
+	while (true) {
+		const uint64_t nonspecificity_mask = 0ul - (1ul << nonspecificity);
+		const uint64_t numa_node = numa_node_of_cpu(cpu_id);
+		if (
+			!CPU_ISSET(cpu_id, in_use) &&
+			(numa_node & nonspecificity_mask) ==
+			(cpu_numa_node & nonspecificity_mask)
+		) {
+			// cpu is free and on the accepted numa nodes
+			CPU_SET(cpu_id, in_use);
+			return SUCCESS;
+		}
+		// look at next cpu
+		cpu_id++;
+		if (cpu_id > numa_num_configured_cpus()) {
+			// we went through all cpus registered in the system,
+			// let's be less specific in our request for numa node adherence
+			nonspecificity++;
+			if (nonspecificity > max_nonspecificity) {
+				std::cerr << "could not find a cpu not used "
+					"by own threads, even accepting "
+					<< (1 << (nonspecificity - 1)) << " NUMA nodes!"
+					<< std::endl;
+				std::cerr << "in_use cpus: " << CPU_COUNT(in_use) << std::endl;
+				std::cerr << "cpu_id: " << cpu_id << std::endl;
+				std::cerr << "nonspecificity: " << nonspecificity << std::endl;
+				fprintf(stderr, "nonspecificity_mask: %16b\n", nonspecificity_mask);
+				return NOT_ENOUGH_CPUS;
+			}
+			cpu_id = 0;
+		}
+	}
+}
+
 template <class ResultT>
-bool benchmark(multithreaded_measures* res, uint64_t correct_result, const ResultT* values, uint64_t n, const uint32_t stride, double GB, aggregation_function_t<ResultT> func) {
+int benchmark(
+	multithreaded_measures* res,
+	const uint64_t cpu_numa_node,
+	uint64_t correct_result,
+	const ResultT* values,
+	uint64_t n,
+	const uint32_t stride,
+	double GB,
+	aggregation_function_t<ResultT> func
+) {
     for ( size_t core_cnt = 1; core_cnt <= MAX_CORES; core_cnt *= 2 ) { /* Run with 1, 2, 4, ... MAX_CORES cores */
         std::vector< std::thread* > pool;
 
@@ -68,8 +119,23 @@ bool benchmark(multithreaded_measures* res, uint64_t correct_result, const Resul
             memset( tmp_dur, 0, core_cnt * sizeof( double ) );
             memset( ready_vec, 0, core_cnt * sizeof( bool ) );
 
-            for ( size_t tid = 0; tid < core_cnt; ++tid ) {
-                pool.emplace_back( create_thread( tid, tmp_res, tmp_dur, ready_vec, &ready_future, magic, func ) );
+			// cpu_id is restricted to the cpus of cpu_numa_node (if possible)
+			uint64_t cpu_id = 0;
+			uint64_t nonspecificity = 0; // how far away the cpu may be from cpu_numa_node
+			cpu_set_t cpus_in_use;
+			CPU_ZERO(&cpus_in_use);
+
+            for ( size_t tid = 0; tid < core_cnt; ++tid, ++cpu_id ) {
+				if (find_next_best_cpu(cpu_id, &cpus_in_use, cpu_numa_node, nonspecificity) != SUCCESS) {
+					std::cerr
+						<< "could not find " << tid + 1
+						<< " cpus in / around NUMA node " << cpu_numa_node
+						<< ", quitting!"
+						<< std::endl;
+					return NOT_ENOUGH_CPUS;
+				}
+				// std::cout << "create_thread( tid: " << tid << ", cpu: " << cpu_id << ", ...);" << std::endl;
+                pool.emplace_back( create_thread( tid, cpu_id, tmp_res, tmp_dur, ready_vec, &ready_future, magic, func ) );
             }
             bool all_ready = false;
             while ( !all_ready ) {
@@ -113,12 +179,18 @@ bool benchmark(multithreaded_measures* res, uint64_t correct_result, const Resul
         free( tmp_res );
     }
 
-    bool success = true;
     for ( size_t core_cnt = 1; core_cnt <= MAX_CORES; core_cnt *= 2 ) {
-        success &= (*res)[ core_cnt ].result == correct_result;
+		if ((*res)[ core_cnt ].result != correct_result) {
+			std::cerr
+				<< "the correct result is " << correct_result
+				<< " but with " << core_cnt
+				<< " cores, we got " << (*res)[core_cnt].result << " instead :/"
+				<< std::endl;
+			return RESULT_INCORRECT;
+		}
     }
 
-    return success;
+    return SUCCESS;
 }
 
 template <class ResultT>
@@ -128,8 +200,18 @@ int main_multi_threaded(
 	bool multi_threaded,
 	bool avx512,
 	bool bits64,
-	const uint64_t numa_node
+	const uint64_t numa_node,
+	const uint64_t cpu_numa_node
 ) {
+	// run this thread and it's children on the given numa node
+	// struct bitmask cpu_mask; // conversion to cpu mask not needed?
+	// numa_node_to_cpus(cpu_numa_node, &cpu_mask);
+	int result = numa_run_on_node(cpu_numa_node);
+	if (result != 0) {
+		std::cerr << "could not run on NUMA node " << cpu_numa_node << "! ";
+		perror("numa_run_on_node");
+	}
+
     // define number of values
     // 27 --> 134 million integers --> 8GB
     // 26 --> 67 million integers --> 4GB
@@ -179,7 +261,7 @@ int main_multi_threaded(
 	measurements.assign(aggregators.size(), multithreaded_measures());
 
     // open files to store runtime measurements
-	string label = make_label(data_size_log2, multi_threaded, avx512, bits64, numa_node);
+	string label = make_label(data_size_log2, multi_threaded, avx512, bits64, numa_node, cpu_numa_node);
 	string result_filename_base = "./data/gather/" + label;
 
 	/*
@@ -208,17 +290,39 @@ int main_multi_threaded(
 
 			if (!strided) {
 				if (stride_pow == 1) {
-					if (benchmark(&measurement, correct, array, number_of_values, 0, GB, function)) {
+					int error_code = benchmark(
+						&measurement,
+						cpu_numa_node,
+						correct,
+						array,
+						number_of_values,
+						0,
+						GB,
+						function
+					);
+					if (error_code == SUCCESS) {
 						cout << label << " done" << endl;
 					} else {
-						cout << label << " failed" << endl;
+						cout << label << " failed with code " << error_code << endl;
+						return error_code;
 					}
 				}
 			} else {
-				if (benchmark(&measurement, correct, array, number_of_values, stride_size, GB, function)) {
+				int error_code = benchmark(
+					&measurement,
+					cpu_numa_node,
+					correct,
+					array,
+					number_of_values,
+					stride_size,
+					GB,
+					function
+				);
+				if (error_code == SUCCESS) {
 					cout << label << " done" << endl;
 				} else {
-					cout << label << " failed" << endl;
+					cout << label << " failed with code " << error_code << endl;
+					return error_code;
 				}
 			}
 

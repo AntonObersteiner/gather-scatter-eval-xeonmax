@@ -10,6 +10,9 @@ enum gather_error_codes {
 	RESULT_FILE_NOT_OPENED = 3,
 	NO_MEMORY = 4,
 	TOO_MANY_ARGUMENTS = 5,
+	NOT_ENOUGH_CPUS = 6,
+	RESULT_INCORRECT = 7,
+	RUNNING_ON_WRONG_CPU_NUMA_NODE = 8,
 };
 
 #endif // include guard GATHER_ERROR_CODES_H

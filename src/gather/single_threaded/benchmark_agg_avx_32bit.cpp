@@ -12,10 +12,12 @@ constexpr bool bits64 = std::is_same<ResultT, uint64_t>::value;
 int main(int argc, const char** argv) {
 	int data_size_log2 = 0;
 	int numa_node = 0;
+	int cpu_numa_node = 0;
 	int result = read_cmdline_arguments(
 		argc, argv,
 		data_size_log2,
-		numa_node
+		numa_node,
+		cpu_numa_node
 	);
 	if (result != SUCCESS)
 		return result;
@@ -33,6 +35,7 @@ int main(int argc, const char** argv) {
 		multi_threaded,
 		avx512,
 		bits64,
-		numa_node
+		numa_node,
+		cpu_numa_node
 	);
 }

@@ -5,12 +5,13 @@
 
 /** creates a std::thread with the given id, pointers to return thread data by,
  * the passed sync_barrier and the aggregation func to be measured.
- * the thread is pinned to the cpu with tid via pthread_setaffinity_np.
+ * the thread is pinned to the cpu with cpu_id via pthread_setaffinity_np.
  * returns the created thread.
  */
 template< typename Function, class ResultT>
 std::thread* create_thread(
 	const uint64_t tid,
+	const uint64_t cpu_id,
 	ResultT* local_result,
 	double* local_duration,
 	bool* local_ready,
@@ -20,7 +21,7 @@ std::thread* create_thread(
 ) {
     cpu_set_t cpuset;
     CPU_ZERO( &cpuset );
-    CPU_SET( tid, &cpuset );
+    CPU_SET( cpu_id, &cpuset );
     std::thread* t = new std::thread(
 		std::forward< Function >( magic ),
 		tid,

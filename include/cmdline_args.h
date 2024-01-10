@@ -8,14 +8,16 @@
  * argv[1] must exist and is read with atoi into data_size_log2.
  * if argv[1] is not given, this returns NO_DATA_SIZE_GIVEN.
  * argv[2] is optional and, if given, is read into numa_mode.
- * more argv (detected as argc > 3) raises TOO_MANY_ARGUMENTS.
+ * argv[3] is optional and, if given, is read into cpu_numa_mode.
+ * more argv (detected as argc > 4) raises TOO_MANY_ARGUMENTS.
  * successful call returns error_codes.h's SUCCESS
  */
 inline gather_error_codes read_cmdline_arguments (
 	const int argc,
 	const char** argv,
 	int &data_size_log2,
-	int &numa_node
+	int &numa_node,
+	int &cpu_numa_node
 ) {
     if (argc < 2) {
         std::cerr << "Data Size as input expected (as log_2)!" << std::endl;
@@ -30,7 +32,12 @@ inline gather_error_codes read_cmdline_arguments (
 
 	numa_node = atoi(argv[2]);
 
-	if (argc > 3) {
+	if (argc < 4)
+		return SUCCESS;
+
+	cpu_numa_node = atoi(argv[3]);
+
+	if (argc > 4) {
         std::cerr << "too many arguments (" << argc << ") to " << argv[0] << "!" << std::endl;
 		return TOO_MANY_ARGUMENTS;
 	}

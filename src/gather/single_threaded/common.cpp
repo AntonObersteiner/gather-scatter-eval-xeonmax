@@ -34,8 +34,19 @@ int main_single_threaded(
 	bool multi_threaded,
 	bool avx512,
 	bool bits64,
-	const uint64_t numa_node
+	const uint64_t numa_node,
+	const uint64_t cpu_numa_node
 ) {
+	std::cout << "migrating this thread and it's children to given NUMA node " << cpu_numa_node << std::endl;
+	// struct bitmask cpu_mask; // conversion to cpu mask not needed?
+	// numa_node_to_cpus(cpu_numa_node, &cpu_mask);
+	int result = numa_run_on_node(cpu_numa_node);
+	if (result != 0) {
+		std::cerr << "could not run on NUMA node " << cpu_numa_node << "! ";
+		perror("numa_run_on_node");
+		return NOT_ENOUGH_CPUS;
+	}
+
     // define number of values
     // 27 --> 134 million integers --> 8GB
     // 26 --> 67 million integers --> 4GB
@@ -85,7 +96,7 @@ int main_single_threaded(
 	measurements.assign(aggregators.size(), {0, 0, 0, 0});
 
     // open files to store runtime measurements
-	string label = make_label(data_size_log2, multi_threaded, avx512, bits64, numa_node);
+	string label = make_label(data_size_log2, multi_threaded, avx512, bits64, numa_node, cpu_numa_node);
 	string result_filename = "./data/gather/" + label + "_results.dat";
 	ofstream result_file;
 	result_file.open(result_filename);
