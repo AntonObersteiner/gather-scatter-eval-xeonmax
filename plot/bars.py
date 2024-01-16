@@ -94,13 +94,13 @@ column_names_and_types = OrderedDict([
 	("stride",       np.int32),
 	("stride_bytes", np.int32),
 	("mis-scalar",   np.float32),
-	("thr-scalar",   np.float32),
+	("scalar",   np.float32),
 	("mis-linear",   np.float32),
-	("thr-linear",   np.float32),
+	("linear",   np.float32),
 	("mis-gather",   np.float32),
-	("thr-gather",   np.float32),
+	("gather",   np.float32),
 	("mis-seti",     np.float32),
-	("thr-seti",     np.float32),
+	("seti",     np.float32),
 ])
 drop_columns = [
 	"stride_bytes",
@@ -143,34 +143,42 @@ def read_data(files):
 
 	return data
 
-def main(files):
-	data = read_data(files)
-	labels = { file: read_label(file) for file in files }
-	suffixes = ["_hbm", "_ddr"]
-	infixes = ["-scalar", "-linear", "-gather", "-seti"]
-	mydata = data[files[0]]
-	print(mydata)
-	print(data[files[1]])
-	mydata = mydata.merge(
-		data[files[1]],
-		left_on = "stride",
-		right_on = "stride",
-		suffixes = suffixes,
+def label_data(data, label_dict):
+	for label_name, label_value in label_dict.items():
+		data[label_name] = [label_value] * data.shape[0]
+	return data
+
+def make_long(data):
+	return data.melt(
+		id_vars = ["stride"] + list(filename_labeling.keys()),
+		var_name = "method",
+		value_name  = "throughput",
 	)
+
+def main(files):
+	# read in throughput data and manage columns
+	data = read_data(files)
+
+	# add the colums with information from filenames
+	for file, data_frame in data.items():
+		label_data(data_frame, read_label(file))
+
+	# add all the rows together into one frame
+	mydata = pd.concat(data.values())
 	print(mydata)
-	def plot(label):
-		return sns.lineplot(
-			data = mydata,
-			x = "stride",
-			y = label,
-			label = label,
-			legend = "brief",
-			#hue = "technique",
-		)
-	ax = None
-	for suffix in suffixes:
-		for infix in infixes:
-			ax = plot("thr" + infix + suffix)
+
+	# transform the colums for different instructions into rows
+	mydata = make_long(mydata)
+	print(mydata)
+
+	ax = sns.lineplot(
+		data = mydata,
+		x = "stride",
+		y = "throughput",
+		hue = "method",
+		style = "avx",
+		size = "mem_node",
+	)
 	ax.legend()
 	plt.show()
 
