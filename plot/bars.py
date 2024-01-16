@@ -104,6 +104,7 @@ column_names_and_types = OrderedDict([
 ])
 drop_columns = [
 	"stride_bytes",
+	#"scalar", "linear"
 ] + [
 	column
 	for column in column_names_and_types.keys()
@@ -155,7 +156,26 @@ def make_long(data):
 		value_name  = "throughput",
 	)
 
-def main(files):
+def main(
+	files,
+	plot = (
+		sns.lineplot
+		#sns.barplot
+	),
+	differentiate = {
+		"x": (
+			"cores"
+			#"stride"
+		),
+		"hue": "method",
+		"style": (
+			#"mem_node"
+			"avx"
+			#"threaded"
+		),
+		#"size": "cores",
+	},
+):
 	# read in throughput data and manage columns
 	data = read_data(files)
 
@@ -171,13 +191,11 @@ def main(files):
 	mydata = make_long(mydata)
 	print(mydata)
 
-	ax = sns.lineplot(
+	ax = plot(
 		data = mydata,
-		x = "stride",
 		y = "throughput",
-		hue = "method",
-		style = "avx",
-		size = "mem_node",
+		legend = "full",
+		**differentiate,
 	)
 	ax.legend()
 	plt.show()
