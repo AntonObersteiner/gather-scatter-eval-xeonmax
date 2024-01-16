@@ -93,15 +93,22 @@ def test_label_conversions():
 column_names_and_types = OrderedDict([
 	("stride",       np.int32),
 	("stride_bytes", np.int32),
-	("scalar_mis",   np.float32),
-	("scalar",       np.float32),
-	("linear_mis",   np.float32),
-	("linear",       np.float32),
-	("gather_mis",   np.float32),
-	("gather",       np.float32),
-	("seti_mis",     np.float32),
-	("seti",         np.float32),
+	("mis-scalar",   np.float32),
+	("thr-scalar",   np.float32),
+	("mis-linear",   np.float32),
+	("thr-linear",   np.float32),
+	("mis-gather",   np.float32),
+	("thr-gather",   np.float32),
+	("mis-seti",     np.float32),
+	("thr-seti",     np.float32),
 ])
+drop_columns = [
+	"stride_bytes",
+] + [
+	column
+	for column in column_names_and_types.keys()
+	if column.startswith("mis-")
+]
 def read_data(files):
 	data = {
 		file: pd.read_csv(
@@ -112,13 +119,59 @@ def read_data(files):
 		)
 		for file in files
 	}
+	for file, frame in data.items():
+		# sometimes, the strides are stored as 2, 4, 8, …, (power style)
+		# sometimes as the corresponding exponents: 1, 2, 3, … (log2 style)
+		# this is automatically detected and converted to the log2 style
+		strides = frame["stride"]
+		if strides[6] - strides[5] == 1:
+			pass
+		elif strides[6] / strides[5] == 2:
+			frame["stride"] = np.int32(np.log2(frame["stride"]))
+		else:
+			raise ValueError(
+				f"strides usually are either "
+				f"powers of two (but {strides[6]} / {strides[5]} ≠ 2) "
+				f"or log2 consecutive integers (but {strides[6]} - {strides[5]} ≠ 1)."
+			)
+
+		# remove the columns listed above, they are redundant or uninteresting
+		frame.drop(
+			columns = drop_columns,
+			inplace = True,
+		)
+
 	return data
 
 def main(files):
 	data = read_data(files)
 	labels = { file: read_label(file) for file in files }
-	sns.scatterplot(data = data[files[0]], x = "stride", y = "scalar")
-	sns.scatterplot(data = data[files[0]], x = "stride", y = "linear")
+	suffixes = ["_hbm", "_ddr"]
+	infixes = ["-scalar", "-linear", "-gather", "-seti"]
+	mydata = data[files[0]]
+	print(mydata)
+	print(data[files[1]])
+	mydata = mydata.merge(
+		data[files[1]],
+		left_on = "stride",
+		right_on = "stride",
+		suffixes = suffixes,
+	)
+	print(mydata)
+	def plot(label):
+		return sns.lineplot(
+			data = mydata,
+			x = "stride",
+			y = label,
+			label = label,
+			legend = "brief",
+			#hue = "technique",
+		)
+	ax = None
+	for suffix in suffixes:
+		for infix in infixes:
+			ax = plot("thr" + infix + suffix)
+	ax.legend()
 	plt.show()
 
 def test():
