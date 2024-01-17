@@ -156,8 +156,50 @@ def make_long(data):
 		value_name  = "throughput",
 	)
 
+def configure_x_scale(
+	ax,
+	x_values,
+	x_log_scale = "auto",
+	set_ticks = True,
+):
+	x_values.sort()
+	match x_log_scale:
+		case True | False:
+			pass
+		case "auto":
+			if len(x_values) <= 4:
+				x_log_scale = False
+			elif x_values[3] / x_values[2] == 2:
+				x_log_scale = True
+			else:
+				x_log_scale = False
+		case value:
+			raise ValueError(
+				f"unknown choice for x_log_scale '{x_log_scale}'. "
+				f"valid would be: True, False, 'auto'"
+			)
+
+	if x_log_scale:
+		ax.set_xscale("log")
+
+	if len(x_values) > 15:
+		raise NotImplementedError(
+			f"you have more than 15 x-values ({len(x_values)}) "
+			f"and asked to set the ticks, but no filtering is implemented..."
+		)
+
+	if set_ticks:
+		ax.set_xticks(
+			x_values,
+			x_values,
+			minor = False,
+		)
+		ax.set_xticks([], [], minor = True)
+
+
+sink = lambda x: 0
 log_message = print
-print_data = lambda x: 0
+print_data = sink
 def main(
 	files,
 	plot = (
@@ -181,7 +223,11 @@ def main(
 		#"stride > 4",
 		#"cores > 8",
 	],
+	x_log_scale = "auto",
 ):
+	"""
+	x_log_scale may be True, False or "auto".
+	"""
 	# read in throughput data and manage columns
 	data = read_data(files)
 
@@ -206,12 +252,22 @@ def main(
 			mydata = mydata.query(query)
 		print_data(mydata)
 
+	x_values = list(set(mydata[differentiate["x"]]))
+
 	log_message(f"plotting...")
 	ax = plot(
 		data = mydata,
 		y = "throughput",
 		legend = "full",
 		**differentiate,
+	)
+	ax.set_title("test")
+	ax.set_ylabel("throughput [GiB/s]")
+	configure_x_scale(
+		ax,
+		x_values,
+		x_log_scale = x_log_scale,
+		set_ticks = True
 	)
 	ax.legend()
 	plt.show()
