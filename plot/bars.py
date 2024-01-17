@@ -102,17 +102,19 @@ def test_label_conversions():
 		assert label_dict_to_tuple(read) == label_tuple
 		assert label_tuple_to_dict(label_tuple) == label_dict
 
+chosen_throughput_unit = "thr-"
+discarded_throuput_unit = "mis-"
 column_names_and_types = OrderedDict([
 	("stride",       np.int32),
 	("stride_useless", np.int32),
 	("mis-scalar",   np.float32),
-	("scalar",   np.float32),
+	("thr-scalar",   np.float32),
 	("mis-linear",   np.float32),
-	("linear",   np.float32),
+	("thr-linear",   np.float32),
 	("mis-gather",   np.float32),
-	("gather",   np.float32),
+	("thr-gather",   np.float32),
 	("mis-seti",     np.float32),
-	("seti",     np.float32),
+	("thr-seti",     np.float32),
 ])
 drop_columns = [
 	"stride_useless",
@@ -120,7 +122,7 @@ drop_columns = [
 ] + [
 	column
 	for column in column_names_and_types.keys()
-	if column.startswith("mis-")
+	if column.startswith(discarded_throuput_unit)
 ]
 def read_data(files):
 	data = {
@@ -154,6 +156,13 @@ def read_data(files):
 			columns = drop_columns,
 			inplace = True,
 		)
+		# now that the stupid 'mis-' are gone, rename 'thr-gather' to 'gather'
+		rename_dict = {
+			name: name[len(chosen_throughput_unit):]
+			for name in frame.columns
+			if name.startswith(chosen_throughput_unit)
+		}
+		frame.rename(columns = rename_dict, inplace = True)
 
 	return data
 
