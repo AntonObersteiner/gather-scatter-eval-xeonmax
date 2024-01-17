@@ -37,7 +37,7 @@ def int_or_empty(default_value = None):
 # it is labeled as the first element of the tuple.
 # the plot tries to use the second element
 unknown_labels = {
-	"cores": (.5, "unknown"),
+	"cores": (0, "unknown"),
 	"mem_node": ("dram?", "dram?"),
 	"cpu_node": ("dram?", "dram?"),
 }
