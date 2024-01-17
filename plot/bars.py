@@ -278,6 +278,7 @@ def main(
 		#"log2_stride > 4",
 		#"cores > 8",
 		#"cores == 32",
+		"cores >= 1",
 	],
 	x_log_scale = "auto",
 	title = (
@@ -308,7 +309,7 @@ def main(
 	log_message("filtered and labeled. concatenating...")
 	# add all the rows together into one frame
 	mydata = pd.concat(data.values())
-	mydata = convert_strides_to_byte(mydata)
+	#mydata = convert_strides_to_byte(mydata)
 	print_data(mydata)
 
 	log_message(f"transforming {mydata.shape[0]} rows to long form...")
