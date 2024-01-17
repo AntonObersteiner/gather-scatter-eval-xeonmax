@@ -195,6 +195,7 @@ def configure_x_scale(
 	column_name,
 	x_log_scale = "auto",
 	set_ticks = True,
+	shift_ticks = False,
 ):
 	x_values = list(set(data[column_name]))
 	x_values.sort()
@@ -230,6 +231,12 @@ def configure_x_scale(
 			x_labels = [
 				value if value != null_value else null_label
 				for value in x_labels
+			]
+		if shift_ticks:
+			min_tick_position = min(x_values)
+			x_values = [
+				value - min_tick_position
+				for value in x_values
 			]
 		ax.set_xticks(
 			x_values,
@@ -310,7 +317,8 @@ def main(
 		mydata,
 		differentiate["x"],
 		x_log_scale = x_log_scale,
-		set_ticks = True
+		set_ticks = True,
+		shift_ticks = (plot == sns.barplot),
 	)
 	ax.legend()
 	plt.show()
