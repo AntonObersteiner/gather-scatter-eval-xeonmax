@@ -273,6 +273,19 @@ def main(
 		#"cores > 8",
 	],
 	x_log_scale = "auto",
+	title = (
+		"Throughput"
+		if chosen_throughput_unit == "thr-" else
+		"MIS"
+	) + (
+		" on sequential reading and adding "
+		"of random integers over 4GiB"
+	),
+	y_label = (
+		"throughput [GiB/s]"
+		if chosen_throughput_unit == "thr-" else
+		"integer operations [10⁶/s]"
+	),
 ):
 	"""
 	x_log_scale may be True, False or "auto".
@@ -310,8 +323,8 @@ def main(
 		legend = "full",
 		**differentiate,
 	)
-	ax.set_title("Througput on sequential reading and adding of random integers over 4GiB")
-	ax.set_ylabel("throughput [GiB/s]")
+	ax.set_title(title)
+	ax.set_ylabel(y_label)
 	configure_x_scale(
 		ax,
 		mydata,
