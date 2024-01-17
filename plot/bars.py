@@ -156,6 +156,8 @@ def make_long(data):
 		value_name  = "throughput",
 	)
 
+log_message = print
+print_data = lambda x: 0
 def main(
 	files,
 	plot = (
@@ -175,6 +177,10 @@ def main(
 		),
 		#"size": "cores",
 	},
+	queries = [
+		#"stride > 4",
+		#"cores > 8",
+	],
 ):
 	# read in throughput data and manage columns
 	data = read_data(files)
@@ -183,14 +189,24 @@ def main(
 	for file, data_frame in data.items():
 		label_data(data_frame, read_label(file))
 
+	log_message(f"read the {len(files)} files into a dataframe, "
+		"filtered and labeled. concatenating...")
 	# add all the rows together into one frame
 	mydata = pd.concat(data.values())
-	print(mydata)
+	print_data(mydata)
 
+	log_message(f"transforming to long form: stride labels... throughput")
 	# transform the colums for different instructions into rows
 	mydata = make_long(mydata)
-	print(mydata)
+	print_data(mydata)
 
+	if queries:
+		log_message(f"applying queries...")
+		for query in queries:
+			mydata = mydata.query(query)
+		print_data(mydata)
+
+	log_message(f"plotting...")
 	ax = plot(
 		data = mydata,
 		y = "throughput",
