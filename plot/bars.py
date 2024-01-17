@@ -104,7 +104,7 @@ def test_label_conversions():
 
 column_names_and_types = OrderedDict([
 	("stride",       np.int32),
-	("stride_bytes", np.int32),
+	("stride_useless", np.int32),
 	("mis-scalar",   np.float32),
 	("scalar",   np.float32),
 	("mis-linear",   np.float32),
@@ -115,7 +115,7 @@ column_names_and_types = OrderedDict([
 	("seti",     np.float32),
 ])
 drop_columns = [
-	"stride_bytes",
+	"stride_useless",
 	#"scalar", "linear"
 ] + [
 	column
@@ -138,9 +138,10 @@ def read_data(files):
 		# this is automatically detected and converted to the log2 style
 		strides = frame["stride"]
 		if strides[6] - strides[5] == 1:
-			pass
+			frame["log2_stride"] = frame["stride"]
+			frame["stride"] = 2**frame["log2_stride"]
 		elif strides[6] / strides[5] == 2:
-			frame["stride"] = np.int32(np.log2(frame["stride"]))
+			frame["log2_stride"] = np.int32(np.log2(frame["stride"]))
 		else:
 			raise ValueError(
 				f"strides usually are either "
@@ -161,9 +162,20 @@ def label_data(data, label_dict):
 		data[label_name] = [label_value] * data.shape[0]
 	return data
 
+def convert_strides_to_byte(dataframe):
+	dataframe["log2_stride"] += np.log2(dataframe["bit"]) - 3
+	dataframe["stride"] = dataframe["stride"] * (dataframe["bit"] / 8)
+
+	dataframe["log2_stride"] = np.int32(dataframe["log2_stride"])
+	dataframe["stride"] = np.int32(dataframe["stride"])
+	return dataframe
+
 def make_long(data):
 	return data.melt(
-		id_vars = ["stride"] + list(filename_labeling.keys()),
+		id_vars = (
+			["log2_stride", "stride"]
+			+ list(filename_labeling.keys())
+		),
 		var_name = "method",
 		value_name  = "throughput",
 	)
@@ -241,7 +253,7 @@ def main(
 		#"size": "cores",
 	},
 	queries = [
-		#"stride > 4",
+		#"log2_stride > 4",
 		#"cores > 8",
 	],
 	x_log_scale = "auto",
@@ -260,6 +272,7 @@ def main(
 	log_message("filtered and labeled. concatenating...")
 	# add all the rows together into one frame
 	mydata = pd.concat(data.values())
+	mydata = convert_strides_to_byte(mydata)
 	print_data(mydata)
 
 	log_message(f"transforming {mydata.shape[0]} rows to long form...")
