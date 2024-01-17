@@ -265,12 +265,19 @@ def main(
 			#"mem_node"
 			"avx"
 			#"threaded"
+			#"cores"
+			#"bit"
 		),
-		#"size": "cores",
+		"size": (
+			None
+			#"cores"
+			#"stride"
+		),
 	},
 	queries = [
 		#"log2_stride > 4",
 		#"cores > 8",
+		#"cores == 32",
 	],
 	x_log_scale = "auto",
 	title = (
