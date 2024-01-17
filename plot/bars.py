@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+print("loading libraries...")
 from matplotlib import pyplot as plt
 import seaborn as sns
 import pandas  as pd
@@ -248,6 +249,7 @@ def main(
 	"""
 	x_log_scale may be True, False or "auto".
 	"""
+	log_message(f"reading, filtering and labeling {len(files)} files...")
 	# read in throughput data and manage columns
 	data = read_data(files)
 
@@ -255,32 +257,31 @@ def main(
 	for file, data_frame in data.items():
 		label_data(data_frame, read_label(file))
 
-	log_message(f"read the {len(files)} files into a dataframe, "
-		"filtered and labeled. concatenating...")
+	log_message("filtered and labeled. concatenating...")
 	# add all the rows together into one frame
 	mydata = pd.concat(data.values())
 	print_data(mydata)
 
-	log_message(f"transforming to long form: stride labels... throughput")
+	log_message(f"transforming {mydata.shape[0]} rows to long form...")
 	# transform the colums for different instructions into rows
 	mydata = make_long(mydata)
 	print_data(mydata)
 
 	if queries:
-		log_message(f"applying queries...")
+		log_message(f"applying queries to {mydata.shape[0]} rows...")
 		for query in queries:
 			mydata = mydata.query(query)
 		print_data(mydata)
 
 
-	log_message(f"plotting...")
+	log_message(f"plotting {mydata.shape[0]} rows (= values)...")
 	ax = plot(
 		data = mydata,
 		y = "throughput",
 		legend = "full",
 		**differentiate,
 	)
-	ax.set_title("test")
+	ax.set_title("Througput on sequential reading and adding of random integers over 4GiB")
 	ax.set_ylabel("throughput [GiB/s]")
 	configure_x_scale(
 		ax,
