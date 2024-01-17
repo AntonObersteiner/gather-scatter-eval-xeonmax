@@ -218,13 +218,13 @@ def configure_x_scale(
 	if x_log_scale:
 		ax.set_xscale("log")
 
-	if len(x_values) > 15:
-		raise NotImplementedError(
-			f"you have more than 15 x-values ({len(x_values)}) "
-			f"and asked to set the ticks, but no filtering is implemented..."
-		)
-
 	if set_ticks:
+		if len(x_values) > 16:
+			raise NotImplementedError(
+				f"you have more than 16 x-values ({len(x_values)}) "
+				f"and asked to set the ticks, but no filtering is implemented..."
+			)
+
 		x_labels = x_values
 		if column_name in unknown_labels.keys():
 			null_value, null_label = unknown_labels[column_name]
