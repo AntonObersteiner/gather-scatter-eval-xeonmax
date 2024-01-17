@@ -32,15 +32,23 @@ def int_or_empty(default_value = None):
 
 	return converter
 
+# if a datum for a label from the filename is not present in the filename
+# it is labeled as the first element of the tuple.
+# the plot tries to use the second element
+unknown_labels = {
+	"cores": (.5, "unknown"),
+	"mem_node": ("dram?", "dram?"),
+	"cpu_node": ("dram?", "dram?"),
+}
 filename_labeling = OrderedDict([
 	# a name for the property here, the index in the regex groups and the type
 	("data_size_log2", (0, int)),
 	("threaded", (1, str)),
 	("avx", (2, str)),
 	("bit", (3, int)),
-	("mem_node", (5, int_or_empty(-1))),
-	("cpu_node", (6, int_or_empty(-1))),
-	("cores", (8, int_or_empty(0))),        #marking the single-core case
+	("mem_node", (5, int_or_empty(unknown_labels["mem_node"][0]))),
+	("cpu_node", (6, int_or_empty(unknown_labels["cpu_node"][0]))),
+	("cores", (8, int_or_empty(unknown_labels["cores"][0]))),  #marking the single-core case
 ])
 def read_label(filename):
 	matches = filename_regex.fullmatch(filename)
@@ -66,23 +74,26 @@ def label_tuple_to_dict(label):
 	])
 
 def test_label_conversions():
+	mem_null = unknown_labels["mem_node"][0]
+	cpu_null = unknown_labels["cpu_node"][0]
+	core_null = unknown_labels["cores"][0]
 	examples = {
 		"30_single_threaded_avx512_32bit_results.dat":
-		((30, "single", "avx512", 32, -1, -1, 0),
+		((30, "single", "avx512", 32, mem_null, cpu_null, core_null),
 		{"data_size_log2": 30, "threaded": "single", "avx": "avx512",
-		"bit": 32, "mem_node": -1, "cpu_node": -1, "cores": 0}),
+		"bit": 32, "mem_node": mem_null, "cpu_node": cpu_null, "cores": core_null}),
 		"30_single_threaded_avx512_32bit_node10_cpus02_results.dat":
-		((30, "single", "avx512", 32, 10, 2, 0),
+		((30, "single", "avx512", 32, 10, 2, core_null),
 		{"data_size_log2": 30, "threaded": "single", "avx": "avx512",
-		"bit": 32, "mem_node": 10, "cpu_node": 2, "cores": 0}),
+		"bit": 32, "mem_node": 10, "cpu_node": 2, "cores": core_null}),
 		"26_multi_threaded_avx256_64bit_node02_cpus06_1_cores.dat":
 		((26, "multi", "avx256", 64, 2, 6, 1),
 		{"data_size_log2": 26, "threaded": "multi", "avx": "avx256",
 		"bit": 64, "mem_node": 2, "cpu_node": 6, "cores": 1}),
 		"29_multi_threaded_avx512_64bit_16_cores.dat":
-		((29, "multi", "avx512", 64, -1, -1, 16),
+		((29, "multi", "avx512", 64, mem_null, cpu_null, 16),
 		{"data_size_log2": 29, "threaded": "multi", "avx": "avx512",
-		"bit": 64, "mem_node": -1, "cpu_node": -1, "cores": 16}),
+		"bit": 64, "mem_node": mem_null, "cpu_node": cpu_null, "cores": 16}),
 	}
 	for filename, (label_tuple, label_dict) in examples.items():
 		read = read_label(filename)
@@ -158,10 +169,12 @@ def make_long(data):
 
 def configure_x_scale(
 	ax,
-	x_values,
+	data,
+	column_name,
 	x_log_scale = "auto",
 	set_ticks = True,
 ):
+	x_values = list(set(data[column_name]))
 	x_values.sort()
 	match x_log_scale:
 		case True | False:
@@ -189,9 +202,16 @@ def configure_x_scale(
 		)
 
 	if set_ticks:
+		x_labels = x_values
+		if column_name in unknown_labels.keys():
+			null_value, null_label = unknown_labels[column_name]
+			x_labels = [
+				value if value != null_value else null_label
+				for value in x_labels
+			]
 		ax.set_xticks(
 			x_values,
-			x_values,
+			x_labels,
 			minor = False,
 		)
 		ax.set_xticks([], [], minor = True)
@@ -252,7 +272,6 @@ def main(
 			mydata = mydata.query(query)
 		print_data(mydata)
 
-	x_values = list(set(mydata[differentiate["x"]]))
 
 	log_message(f"plotting...")
 	ax = plot(
@@ -265,7 +284,8 @@ def main(
 	ax.set_ylabel("throughput [GiB/s]")
 	configure_x_scale(
 		ax,
-		x_values,
+		mydata,
+		differentiate["x"],
 		x_log_scale = x_log_scale,
 		set_ticks = True
 	)
